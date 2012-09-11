@@ -2,19 +2,28 @@
 
 //--------------------------------------------------------------
 void testApp::setup(){
+    ofSetWindowShape(100, 100);
     
+    eliza.load();
+    eliza.start();
 }
 
 //--------------------------------------------------------------
 void testApp::update(){
+    
     string userSays;
     std::getline(std::cin, userSays);
     cout << eliza.ask(userSays);
+    
 }
 
 //--------------------------------------------------------------
 void testApp::draw(){
 
+}
+
+void testApp::exit(){
+    eliza.save();
 }
 
 //--------------------------------------------------------------
