@@ -94,204 +94,21 @@ void shuffle(T &array, size_t size) {
 class ofxEliza {
 public:
 
-    ofxEliza():
-    m_bQuitProgram(0), linePos(2), m_bNewData(0), m_bMemoryRecall(0), m_nShortInputCount(0),
-    m_bLearning(0), m_nUserRepeatCount(0), m_sUserName("USER")
-    {
-		seed_random_generator();
-	}
-//    {
-//		eliza.load_data();
-//		eliza.start();
-//    };
-    
-    ~ofxEliza() {
-		logfile.flush();
-		logfile.close();
-	};
+    ofxEliza();
+    ~ofxEliza();
     
     // loading database into memory
-    void load(string _scriptFile = "script.txt"){
-        std::fstream fin( ofToDataPath(_scriptFile).c_str() , std::ios::in);
-        if(fin.fail()) {
-            throw std::string("can't open script file");
-        }
-        std::string buffer = "";
-        std::string temp = "";
-        int counter = 0, counter2 = 0, line = 0;
-        transpos current_transpos;
-        std::ostringstream os;
-        char cSymbol = 0;
-        char cPrevSymbol;
-        while(std::getline(fin, buffer)) {
-            line++;
-            cPrevSymbol = cSymbol;
-            cSymbol = buffer[0];
-            if(temp.length() > 0 && cSymbol != ';'
-               && cSymbol != cPrevSymbol) {
-                temp.erase(temp.length() - 1, 1);
-                comments.push_back(temp);
-                temp.erase();
-            }
-            buffer.erase(0, 1);
-            switch(cSymbol) {
-                case ';':
-                    temp += ';';
-                    temp += buffer;
-                    temp += '\n';
-                    dump_data();
-                    break;
-                case 'S':
-                    signOn.push_back(buffer);
-                    break;
-                case 'T':
-                    ++counter;
-                    buffer.erase(buffer.length() - 1, 1);
-                    if(counter % 2 == 1) {
-                        current_transpos.verbP1 = buffer;
-                    } else {
-                        current_transpos.verbP2 = buffer;
-                        transpos_list.push_back(current_transpos);
-                    }
-                    break;
-                case 'E':
-                    ++counter2;
-                    buffer.erase(buffer.length() - 1, 1);
-                    if(counter2 % 2 == 1) {
-                        current_correction.verbP1 = buffer;
-                    } else {
-                        current_correction.verbP2 = buffer;
-                        correction_list.push_back(current_correction);
-                    }
-                    break;
-                case 'K':
-                    buffer.erase(buffer.length() - 1, 1);
-                    current_data.keywords.push_back(buffer);
-                    break;
-                case 'R':
-                    current_data.responses.push_back(buffer);
-                    break;
-                case 'M':
-                    subjectRecall.push_back(buffer);
-                    break;
-                case 'N':
-                    nullResponse.push_back(buffer);
-                    break;
-                case 'X':
-                    noKeyWord.push_back(buffer);
-                    break;
-                case 'Z':
-                    topicChanger.push_back(buffer);
-                    break;
-                case 'W':
-                    inputRepeat.push_back(buffer);
-                    break;
-                case 'V':
-                    shortInput.push_back(buffer);
-                    break;
-                case 'C':
-                    current_data.contexts.push_back(buffer);
-                    break;
-                case 'A':
-                    current_data.cmd.push_back(buffer);
-                    break;
-                case 0:
-                    break;
-                default:
-                    os << "(Script error) Unknown symbol: " << cSymbol << ", line: " << line;
-                    throw os.str();
-            }
-        }
-        dump_data();
-        m_nTransPosNum = transpos_list.size();
-        m_nCorrectionNum = correction_list.size();
-        fin.close();
-    };
+    void init(string _scriptFile = "script.txt", string _logFile = "log.txt");
+    void load();
+    void save( string _scriptFile = "script.txt");
     
-    
-    string ask(string _inputString){
-        // gets input from the user
-        save_prev_input();
-        m_sInput = _inputString;
-        save_log("USER");
-        
-        // these function finds and display a response
-        // to the current input of the user.
-        preProcessInput();
-        
-        save_prev_responses();
-        save_prev_response();
-        
-        if(null_input()) {
-            handle_null_input();
-        } else if(user_repeat()) {
-            handle_user_repetition();
-        } else if(short_input()) {
-            handle_short_input();
-        }
-        else {
-            reset_repeat_count();
-            reset_short_input_count();
-            find_response();
-        }
-        
-        select_response();
-        preProcessResponse();
-        check_quit_message();
-        handle_repetition();
-        
-        //	print_response();
-        save_log("ELIZA");
-        
-        return m_sResponse;
-    }
-    
-    // the functions below can be used to save
-    // the content of the dabase to the script file.
-    void save( string _scriptFile = "script.txt"){
-        if(learn()) {
-            scriptfile.open( ofToDataPath(_scriptFile).c_str(), std::ios::out);
-            if(scriptfile.fail()) {
-                throw std::string("Can't save data");
-            }
-            saveComment(comments[0]);
-            saveTopic(signOn, "S");
-            
-            saveComment(comments[1]);
-            saveTransposTable();
-            saveCorrections();
-            saveComment(comments[2]);
-            
-            saveTopic(nullResponse, "N");
-            saveComment(comments[3]);
-            
-            saveTopic(subjectRecall, "M");
-            saveComment(comments[4]);
-            
-            saveTopic(noKeyWord, "X");
-            saveComment(comments[5]);
-            
-            saveTopic(topicChanger, "Z");
-            saveComment(comments[6]);
-            
-            saveTopic(inputRepeat, "W");
-            saveComment(comments[7]);
-            
-            saveKeyWords();
-            
-            scriptfile.flush();
-            scriptfile.close();
-        }
-        save_unknown_sentences();
-    }
+    string ask(string _inputString);
     
 	void preProcessInput();
 	void preProcessResponse();
     
 	void memorise_input();
     
-	void start();
-	
 	void print_response();
 	void print_database_content();
 	void save_unknown_sentences();
