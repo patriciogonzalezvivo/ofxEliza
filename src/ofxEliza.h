@@ -97,33 +97,19 @@ public:
     ofxEliza();
     ~ofxEliza();
     
-    // loading database into memory
-    void init(string _scriptFile = "script.txt", string _logFile = "log.txt");
-    void load();
-    void save( string _scriptFile = "script.txt");
+    // Loading database into memory
+    string  init(string _scriptFile = "script.txt", string _logFile = "log.txt"); // Do load and start()
+    void    load( string _scriptFile = "script.txt");
+    string  start( string _logFile = "log.txt");
+    void    save( string _scriptFile = "script.txt", string _unknownFile = "unknown.txt");
+	void    saveUnknownSentences( string _unknownFile = "unknown.txt");
     
-    string ask(string _inputString);
-    
-	void preProcessInput();
-	void preProcessResponse();
-    
-	void memorise_input();
-    
-	void print_response();
-	void print_database_content();
-	void save_unknown_sentences();
-    
-	void save_log(std::string str);
-    
-	bool quit() const {
-		return m_bQuitProgram;
-	}
-    
-	bool learn() const {
-		return m_bNewData;
-	}
+    string  ask(string _inputString);
     
 private:
+    void preProcessResponse();
+    void saveLog(string str);
+    
 	void saveTopic(const vstring vList, const std::string sSymbol);
 	void saveComment(const std::string comment);
 	void saveTransposTable();
@@ -215,12 +201,6 @@ private:
 	}
 	
 	void remind_prev_subject();
-    
-	void check_quit_message() {
-		if(m_sResponse.find("BYE") != std::string::npos) {
-			m_bQuitProgram = 1;
-		}
-	}
     
 	void seed_random_generator() {
 		srand((unsigned) time(NULL));
@@ -369,7 +349,6 @@ private:
 	unsigned int				m_nTransPosNum;
 	bool						m_bWrongBoundary;
 	bool						m_bGoodContext;
-	bool						m_bQuitProgram;
 	bool						m_bLearning;
 	bool						m_bNewData;
 	bool						m_bMemoryRecall;

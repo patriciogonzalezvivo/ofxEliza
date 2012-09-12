@@ -8,7 +8,7 @@
 
 #include "ofxEliza.h"
 
-ofxEliza::ofxEliza():m_bQuitProgram(0), linePos(2), m_bNewData(0), m_bMemoryRecall(0), m_nShortInputCount(0),m_bLearning(0), m_nUserRepeatCount(0), m_sUserName("USER") {
+ofxEliza::ofxEliza():linePos(2), m_bNewData(0), m_bMemoryRecall(0), m_nShortInputCount(0),m_bLearning(0), m_nUserRepeatCount(0), m_sUserName("USER") {
     seed_random_generator();
 }
 
@@ -19,7 +19,12 @@ ofxEliza::~ofxEliza() {
 
 
 // loading database into memory
-void ofxEliza::init(string _scriptFile, string _logFile){
+string ofxEliza::init(string _scriptFile, string _logFile){
+    load(_scriptFile);
+    return start(_logFile);
+};
+
+void ofxEliza::load(string _scriptFile){
     std::fstream fin( ofToDataPath(_scriptFile).c_str() , std::ios::in);
     if(fin.fail()) {
         throw std::string("can't open script file");
@@ -114,26 +119,12 @@ void ofxEliza::init(string _scriptFile, string _logFile){
     m_nTransPosNum = transpos_list.size();
     m_nCorrectionNum = correction_list.size();
     fin.close();
-    
-    // Start
-    //
-    time_t ltime;
-	time(&ltime);
-	logfile.open( ofToDataPath(_logFile).c_str(), std::ios::out | std::ios::app);
-	if(logfile.fail()) {
-		throw std::string("can't save conversation log");
-	}
-	logfile << "\n\nConversation log - " << ctime(&ltime) << std::endl;
-	response_list = signOn;
-	select_response();
-	print_response();
-	save_log("ELIZA");
-};
+}
 
 // the functions below can be used to save
 // the content of the dabase to the script file.
-void ofxEliza::save( string _scriptFile ){
-    if(learn()) {
+void ofxEliza::save( string _scriptFile, string _unknownFile ){
+    if( m_bNewData ) {
         scriptfile.open( ofToDataPath(_scriptFile).c_str(), std::ios::out);
         if(scriptfile.fail()) {
             throw std::string("Can't save data");
@@ -166,18 +157,46 @@ void ofxEliza::save( string _scriptFile ){
         scriptfile.flush();
         scriptfile.close();
     }
-    save_unknown_sentences();
+    saveUnknownSentences(_unknownFile);
+}
+
+string ofxEliza::start(string _logFile){
+    time_t ltime;
+	time(&ltime);
+	logfile.open( ofToDataPath(_logFile).c_str(), std::ios::out | std::ios::app);
+	if(logfile.fail()) {
+		throw std::string("can't save conversation log");
+	}
+	logfile << "\n\nConversation log - " << ctime(&ltime) << std::endl;
+	response_list = signOn;
+	select_response();
+	
+    if(m_sResponse.length() > 0) {
+		std::cout << m_sResponse;
+	}
+    
+	saveLog("ELIZA");
+    
+    return m_sResponse;
 }
 
 string ofxEliza::ask(string _inputString){
     // gets input from the user
     save_prev_input();
     m_sInput = _inputString;
-    save_log("USER");
+    saveLog("USER");
     
-    // these function finds and display a response
+    // Finds and display a response
     // to the current input of the user.
-    preProcessInput();
+    // removes punctuation from the input
+    // and do some more preprocessing
+    if(m_sInput.length() > 0) {
+		tok.cleanString(m_sInput, " ?!,;");
+		trimRight(m_sInput, '.');
+		UpperCase(m_sInput);
+		m_sInput.insert(0, " ");
+		m_sInput.append(" ");
+	}
     
     save_prev_responses();
     save_prev_response();
@@ -197,25 +216,11 @@ string ofxEliza::ask(string _inputString){
     
     select_response();
     preProcessResponse();
-    check_quit_message();
     handle_repetition();
     
-    //	print_response();
-    save_log("ELIZA");
+    saveLog("ELIZA");
     
     return m_sResponse;
-}
-
-// removes punctuation from the input
-// and do some more preprocessing
-void ofxEliza::preProcessInput() {
-	if(m_sInput.length() > 0) {
-		tok.cleanString(m_sInput, " ?!,;");
-		trimRight(m_sInput, '.');
-		UpperCase(m_sInput);
-		m_sInput.insert(0, " ");
-		m_sInput.append(" ");
-	}
 }
 
 void ofxEliza::preProcessResponse() {
@@ -251,12 +256,6 @@ void ofxEliza::preProcessResponse() {
 	}
 }
 
-void ofxEliza::memorise_input() {
-	m_sSymbol = "@";
-	extract_suffix();
-	memory.push(m_sSuffix);
-}
-
 bool ofxEliza::similar_response() {
 	int len = m_sResponse.length();
 	int len2 = m_sPrevResponse.length();
@@ -277,13 +276,6 @@ inline bool ofxEliza::bot_repeat() {
 		return (pos + 1 < response_list.size());
 	}
 	return 0;
-}
-
-// prints the bot response on the screen
-void ofxEliza::print_response() {
-	if(m_sResponse.length() > 0) {
-		std::cout << m_sResponse;
-	}
 }
 
 // select responses randomly from a list of responses
@@ -478,7 +470,9 @@ void ofxEliza::find_response() {
 	if(tempStr.find(" MY ") != std::string::npos ||
        tempStr.find(" I'M ") != std::string::npos ||
        tempStr.find(" I ") != std::string::npos) {
-		memorise_input();
+		m_sSymbol = "@";
+        extract_suffix();
+        memory.push(m_sSuffix);
 	}
 	save_user_name();
 	if(!bot_understand()) {
@@ -617,23 +611,13 @@ void ofxEliza::print_current_data() {
 	std::cout << std::endl;
 }
 
-// prints database content on the screen
-// for debugging purpose
-void ofxEliza::print_database_content() {
-	int nDatabaseSize = database.size();
-	for(int i = 0; i < nDatabaseSize; ++i) {
-		current_data = database[i];
-		print_current_data();
-	}
-}
-
 // with these specific feature of the program,to make new updates to the
 // script file,you just need to look at the "unknown.txt" file to search
 // for new keyword that can be added to uptadate the chatterbot vocabulary
-void ofxEliza::save_unknown_sentences() {
+void ofxEliza::saveUnknownSentences(string _unknownFile) {
 	size_t nSize = unknownSentences.size();
 	if(nSize > 0) {
-		std::fstream outfile( ofToDataPath("unknown.txt").c_str() , std::ios::out | std::ios::app);
+		std::fstream outfile( ofToDataPath(_unknownFile).c_str() , std::ios::out | std::ios::app);
 		if(outfile.fail()) {
 			throw std::string("can't save unknown sentences");
 		}
@@ -706,8 +690,8 @@ void ofxEliza::saveKeyWords() {
 	}
 }
 
-void ofxEliza::save_log(std::string str) {
-	if(str == "ofxEliza") {
+void ofxEliza::saveLog(std::string str) {
+	if(str == "ELIZA") {
 		logfile << m_sResponse << std::endl;
 	} else if(str == "USER") {
 		logfile << ">" << m_sInput << std::endl;
